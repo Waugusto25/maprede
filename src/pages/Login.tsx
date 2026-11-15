@@ -1,9 +1,9 @@
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { Link, Navigate } from 'react-router-dom'
 import { Cable, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { isNative, useAuth } from '@/lib/auth'
+import { useAuth } from '@/lib/auth'
 
 function ArteFibra() {
   const cores = ['#22d3ee', '#a78bfa', '#34d399', '#f472b6', '#facc15']
@@ -30,17 +30,13 @@ function ArteFibra() {
 }
 
 export default function Login() {
-  const { usuario, entrar } = useAuth()
-  const [email, setEmail] = useState('')
-  const [nome, setNome] = useState('')
+  const { usuario, entrarGoogle } = useAuth()
   const [busy, setBusy] = useState(false)
   if (usuario) return <Navigate to="/" replace />
 
   const google = async () => {
     setBusy(true)
-    // No APK: abrir OAuth com @capacitor/browser e retornar por com.geocampo.app://auth/callback
-    // (requer instalar as dependências Capacitor e Supabase). Nesta versão: entrada local de demonstração.
-    void isNative()
+    try { await entrarGoogle() } catch (e) { toast.error(e instanceof Error ? e.message : 'Falha no login') }
     setBusy(false)
   }
 
@@ -53,13 +49,9 @@ export default function Login() {
         <div className="max-w-sm space-y-6">
           <h1 className="text-3xl font-semibold leading-tight">Engenharia FTTH, GIS e viabilidade de redes em um só lugar.</h1>
           <p className="text-sm text-slate-400">Mapa offline, diagrama unifilar óptico e cálculo de perdas para projetos de fibra.</p>
-          <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); if (email) entrar(email, nome || email.split('@')[0]) }}>
-            <Input placeholder="Nome" value={nome} onChange={(e) => setNome(e.target.value)} className="bg-slate-900" />
-            <Input type="email" required placeholder="E-mail Google" value={email} onChange={(e) => setEmail(e.target.value)} className="bg-slate-900" />
-            <Button type="submit" size="lg" className="w-full bg-cyan-500 text-slate-950 hover:bg-cyan-400" onClick={google} disabled={busy}>
-              {busy && <Loader2 className="animate-spin" />} Entrar com Google
-            </Button>
-          </form>
+          <Button size="lg" className="w-full bg-cyan-500 text-slate-950 hover:bg-cyan-400" onClick={google} disabled={busy}>
+            {busy && <Loader2 className="animate-spin" />} Entrar com Google
+          </Button>
           <p className="text-xs text-slate-500">Novos usuários ficam como “Pendente” até aprovação do administrador.</p>
         </div>
         <footer className="flex gap-4 text-xs text-slate-500">
