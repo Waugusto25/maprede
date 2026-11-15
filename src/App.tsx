@@ -8,6 +8,7 @@ import Diagrama from '@/pages/Diagrama'
 import Projetos from '@/pages/Projetos'
 import { Legal } from '@/pages/Legal'
 import { EmBreve } from '@/components/TopBar'
+import { ViabilidadeFtth, ViabilidadeRadio, Viabilidades } from '@/pages/Viabilidades'
 
 export default function App() {
   return (
@@ -16,9 +17,9 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/projetos" element={<Home><Projetos /></Home>} />
-          <Route path="/viabilidade-ftth" element={<Home><EmBreve titulo="Viabilidade FTTH" etapa={3} /></Home>} />
-          <Route path="/viabilidade-radio" element={<Home><EmBreve titulo="Viabilidade Via Rádio" etapa={3} /></Home>} />
-          <Route path="/viabilidades" element={<Home><EmBreve titulo="Viabilidades" etapa={3} /></Home>} />
+          <Route path="/viabilidade-ftth" element={<Home><ViabilidadeFtth /></Home>} />
+          <Route path="/viabilidade-radio" element={<Home><ViabilidadeRadio /></Home>} />
+          <Route path="/viabilidades" element={<Home><Viabilidades /></Home>} />
           <Route path="/offline" element={<Home><EmBreve titulo="Mapa Offline" etapa={2} /></Home>} />
           <Route path="/diagrama" element={<Home><Diagrama /></Home>} />
           <Route path="/login" element={<Login />} />
