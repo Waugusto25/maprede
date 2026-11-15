@@ -26,7 +26,7 @@ const K = 'maprede.itens'
 
 function toGeo(itens: Item[], rascunho: [number, number][], tool: Tipo | null): GeoJSON.FeatureCollection {
   const features: GeoJSON.Feature[] = itens.map((i) => ({
-    type: 'Feature', properties: { nome: i.nome },
+    type: 'Feature', properties: { nome: i.nome, id: i.id },
     geometry: i.tipo === 'ponto' ? { type: 'Point', coordinates: i.coords[0] }
       : i.tipo === 'linha' ? { type: 'LineString', coordinates: i.coords }
       : { type: 'Polygon', coordinates: [[...i.coords, i.coords[0]]] },
@@ -66,13 +66,16 @@ export default function Mapa() {
     const m = map.current
     if (!m || !m.getStyle()) return
     const data = toGeo(itensR.current, rascR.current, toolR.current)
-    const src = m.getSource('dados') as maplibregl.GeoJSONSource | undefined
-    if (src) { src.setData(data); return }
-    m.addSource('dados', { type: 'geojson', data })
+    let src = m.getSource('dados') as maplibregl.GeoJSONSource | undefined
+    if (src) src.setData(data)
+    else { m.addSource('dados', { type: 'geojson', data }); src = m.getSource('dados') as maplibregl.GeoJSONSource }
+    if (m.getLayer('dados-lbl')) return
+    try {
     m.addLayer({ id: 'dados-fill', type: 'fill', source: 'dados', filter: ['==', '$type', 'Polygon'], paint: { 'fill-color': '#22d3ee', 'fill-opacity': 0.25 } })
     m.addLayer({ id: 'dados-line', type: 'line', source: 'dados', filter: ['!=', '$type', 'Point'], paint: { 'line-color': '#06b6d4', 'line-width': 3 } })
     m.addLayer({ id: 'dados-pt', type: 'circle', source: 'dados', filter: ['==', '$type', 'Point'], paint: { 'circle-radius': 6, 'circle-color': '#f43f5e', 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' } })
     m.addLayer({ id: 'dados-lbl', type: 'symbol', source: 'dados', filter: ['==', '$type', 'Point'], layout: { 'text-field': ['get', 'nome'], 'text-font': ['Noto Sans Regular'], 'text-offset': [0, 1.2], 'text-size': 12 }, paint: { 'text-color': '#0f172a', 'text-halo-color': '#fff', 'text-halo-width': 1.5 } })
+    } catch (err) { console.error('Erro ao criar camadas', err) }
   }, [])
 
   useEffect(() => {
@@ -93,6 +96,36 @@ export default function Mapa() {
     m.on('load', () => m.resize())
     setTimeout(() => m.resize(), 300)
     m.on('style.load', () => { desenhar(); pm.current.forEach((f) => f()) })
+    m.on('mouseenter', 'dados-pt', () => { if (!travR.current && !toolR.current) m.getCanvas().style.cursor = 'move' })
+    m.on('mouseleave', 'dados-pt', () => { m.getCanvas().style.cursor = '' })
+    m.on('mousedown', 'dados-pt', (e) => {
+      if (travR.current || toolR.current) return
+      const id = e.features?.[0]?.properties?.id as string | undefined
+      if (!id) return
+      e.preventDefault()
+      m.dragPan.disable()
+      const mv = (ev: maplibregl.MapMouseEvent) => {
+        const c: [number, number] = [ev.lngLat.lng, ev.lngLat.lat]
+        setItens((l) => l.map((i) => (i.id === id ? { ...i, coords: [c] } : i)))
+      }
+      const up = () => { m.off('mousemove', mv); m.dragPan.enable() }
+      m.on('mousemove', mv)
+      m.once('mouseup', up)
+    })
+    m.on('touchstart', 'dados-pt', (e) => {
+      if (travR.current || toolR.current || e.points.length > 1) return
+      const id = e.features?.[0]?.properties?.id as string | undefined
+      if (!id) return
+      e.preventDefault()
+      m.dragPan.disable()
+      const mv = (ev: maplibregl.MapTouchEvent) => {
+        const c: [number, number] = [ev.lngLat.lng, ev.lngLat.lat]
+        setItens((l) => l.map((i) => (i.id === id ? { ...i, coords: [c] } : i)))
+      }
+      const up = () => { m.off('touchmove', mv); m.dragPan.enable() }
+      m.on('touchmove', mv)
+      m.once('touchend', up)
+    })
     m.on('click', (e) => {
       const c: [number, number] = [e.lngLat.lng, e.lngLat.lat]
       if (medR.current) { setRascunho((r) => [...r, c]); return }
