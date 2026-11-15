@@ -4,6 +4,7 @@ import { AuthProvider } from '@/lib/auth'
 import Login from '@/pages/Login'
 import Home from '@/pages/Home'
 import Admin from '@/pages/Admin'
+import Diagrama from '@/pages/Diagrama'
 import { Legal } from '@/pages/Legal'
 
 export default function App() {
@@ -12,6 +13,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/diagrama" element={<Home><Diagrama /></Home>} />
           <Route path="/login" element={<Login />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/privacidade" element={<Legal titulo="Política de Privacidade" texto="O MAPREDE coleta apenas nome e e-mail da conta Google para autenticação e controle de acesso. Dados de projetos ficam armazenados no seu dispositivo." />} />

@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom'
 import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { PMTiles, Protocol, FileSource } from 'pmtiles'
-import { Folder, LogOut, MapPin, Minus, Pentagon, Search, ShieldCheck, Upload, Check } from 'lucide-react'
+import { Folder, LogOut, MapPin, Minus, Pentagon, Search, ShieldCheck, Upload, Check, Download, Menu, Workflow } from 'lucide-react'
+import { carregarItens, comprimento, fmtM, projetoPadrao, salvarItens } from '@/lib/projeto'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -52,6 +53,10 @@ export default function Mapa() {
   const itensR = useRef(itens); const toolR = useRef(tool); const rascR = useRef(rascunho)
   const pm = useRef<(() => void)[]>([])
   const proto = useRef<Protocol | null>(null)
+  const pid = useRef<string | null>(null)
+  const antigos = useRef<string[]>([])
+  const pronto = useRef(false)
+  const [menu, setMenu] = useState(true)
   itensR.current = itens; toolR.current = tool; rascR.current = rascunho
 
   const desenhar = useCallback(() => {
@@ -89,6 +94,36 @@ export default function Mapa() {
   }, [desenhar])
 
   useEffect(() => { localStorage.setItem(K, JSON.stringify(itens)); desenhar() }, [itens, rascunho, tool, desenhar])
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const id = await projetoPadrao()
+        if (!id) return
+        pid.current = id
+        const remotos = await carregarItens(id)
+        if (remotos.length) setItens(remotos)
+        antigos.current = remotos.map((r) => r.id)
+      } catch { /* offline: segue com dados locais */ }
+      pronto.current = true
+    })()
+  }, [])
+
+  useEffect(() => {
+    if (!pronto.current || !pid.current) return
+    const t = setTimeout(() => {
+      salvarItens(pid.current as string, itens, antigos.current).then(() => { antigos.current = itens.map((i) => i.id) }).catch(() => undefined)
+    }, 1000)
+    return () => clearTimeout(t)
+  }, [itens])
+
+  const exportar = () => {
+    const blob = new Blob([JSON.stringify(toGeo(itens, [], null))], { type: 'application/geo+json' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob); a.download = 'maprede.geojson'; a.click()
+    URL.revokeObjectURL(a.href)
+  }
+  const fibraTotal = itens.filter((i) => i.tipo === 'linha').reduce((s, i) => s + comprimento(i.coords), 0)
 
   const trocarBase = (b: Base) => { setBase(b); map.current?.setStyle(ESTILOS[b]) }
 
@@ -157,14 +192,18 @@ export default function Mapa() {
         </div>
         <Button size="sm" variant="secondary" onClick={() => arq.current?.click()}><Upload /> .pmtiles</Button>
         <input ref={arq} type="file" accept=".pmtiles" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void importar(f); e.target.value = '' }} />
+        <Button size="sm" variant="outline" onClick={exportar}><Download /> GeoJSON</Button>
+        <Button size="sm" variant="outline" asChild><Link to="/diagrama"><Workflow /> Diagrama</Link></Button>
         {isAdmin && <Button size="sm" variant="outline" asChild><Link to="/admin"><ShieldCheck /> Admin</Link></Button>}
         <Button size="sm" variant="outline" onClick={() => void sair()} title={usuario?.email}><LogOut /> Sair</Button>
       </div>
-      <aside className="absolute left-3 top-16 z-10 max-h-[55svh] w-56 space-y-2 overflow-auto rounded-lg bg-background/95 p-3 text-sm shadow">
+      <Button size="icon" variant="secondary" className="absolute bottom-3 left-3 z-20" aria-label="Menu" onClick={() => setMenu((v) => !v)}><Menu /></Button>
+      {menu && <aside className="absolute bottom-16 left-3 z-10 max-h-[55svh] w-56 space-y-2 overflow-auto rounded-lg bg-background/95 p-3 text-sm shadow">
         <div className="flex flex-wrap gap-1">{btn('ponto', MapPin, 'Ponto')}{btn('linha', Minus, 'Linha')}{btn('poligono', Pentagon, 'Pol.')}</div>
         {tool && tool !== 'ponto' && <Button size="sm" className="w-full" onClick={concluir}><Check /> Concluir ({rascunho.length})</Button>}
         {tool && <p className="text-xs text-muted-foreground">Clique no mapa para adicionar.</p>}
         <p className="flex items-center gap-1 font-medium"><Folder className="size-4" /> Projeto</p>
+        <p className="text-xs text-muted-foreground">Fibra total: {fmtM(fibraTotal)} · {itens.filter((i) => i.tipo === 'ponto').length} pontos</p>
         {pastas.length === 0 && <p className="text-xs text-muted-foreground">Sem elementos.</p>}
         {pastas.map((p) => (
           <details key={p} open>
@@ -172,14 +211,14 @@ export default function Mapa() {
             <ul className="ml-4 space-y-1">
               {itens.filter((i) => i.pasta === p).map((i) => (
                 <li key={i.id} className="flex justify-between gap-1">
-                  <button className="truncate text-left hover:underline" onClick={() => map.current?.flyTo({ center: i.coords[0], zoom: 17 })}>{i.nome}</button>
+                  <button className="truncate text-left hover:underline" onClick={() => map.current?.flyTo({ center: i.coords[0], zoom: 17 })}>{i.nome}{i.tipo === 'linha' ? ` (${fmtM(comprimento(i.coords))})` : ''}</button>
                   <button className="text-destructive" aria-label="Excluir" onClick={() => setItens((l) => l.filter((x) => x.id !== i.id))}>×</button>
                 </li>
               ))}
             </ul>
           </details>
         ))}
-      </aside>
+      </aside>}
     </div>
   )
 }
