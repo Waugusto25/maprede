@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
 import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { PMTiles, Protocol, FileSource } from 'pmtiles'
-import { Folder, LogOut, MapPin, Minus, Pentagon, Search, ShieldCheck, Upload, Check, Download, Menu, Workflow } from 'lucide-react'
+import { Folder, MapPin, Minus, Pentagon, Search, Upload, Check, Menu, Compass, Lock, Unlock, Ruler, LocateFixed, Plus, Save, Eraser } from 'lucide-react'
 import { carregarItens, comprimento, fmtM, projetoPadrao, salvarItens } from '@/lib/projeto'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { useAuth } from '@/lib/auth'
 
 type Tipo = 'ponto' | 'linha' | 'poligono'
 interface Item { id: string; nome: string; tipo: Tipo; pasta: string; coords: [number, number][] }
@@ -41,7 +38,6 @@ function toGeo(itens: Item[], rascunho: [number, number][], tool: Tipo | null): 
 }
 
 export default function Mapa() {
-  const { usuario, isAdmin, sair } = useAuth()
   const el = useRef<HTMLDivElement>(null)
   const map = useRef<maplibregl.Map | null>(null)
   const arq = useRef<HTMLInputElement>(null)
@@ -57,7 +53,13 @@ export default function Mapa() {
   const antigos = useRef<string[]>([])
   const pronto = useRef(false)
   const [menu, setMenu] = useState(true)
-  itensR.current = itens; toolR.current = tool; rascR.current = rascunho
+  const [travado, setTravado] = useState(true)
+  const [medir, setMedir] = useState(false)
+  const [gps, setGps] = useState<{ lng: number; lat: number; acc: number } | null>(null)
+  const gpsR = useRef(gps); gpsR.current = gps
+  const travR = useRef(travado); travR.current = travado
+  const medR = useRef(medir); medR.current = medir
+  itensR.current = itens; toolR.current = tool ?? (medir ? 'linha' : null); rascR.current = rascunho
 
   const desenhar = useCallback(() => {
     const m = map.current
@@ -79,8 +81,6 @@ export default function Mapa() {
     maplibregl.addProtocol('pmtiles', protocol.tile)
     const m = new maplibregl.Map({ container: el.current, style: ESTILOS.vetorial, center: [-46.63, -23.55], zoom: 11, maxZoom: 22 })
     map.current = m
-    m.addControl(new maplibregl.NavigationControl(), 'bottom-right')
-    m.addControl(new maplibregl.GeolocateControl({ trackUserLocation: true, positionOptions: { enableHighAccuracy: true } }), 'bottom-right')
     let fallback = false
     m.on('error', (ev) => {
       console.error('Erro no mapa:', ev.error)
@@ -93,9 +93,10 @@ export default function Mapa() {
     setTimeout(() => m.resize(), 300)
     m.on('style.load', () => { desenhar(); pm.current.forEach((f) => f()) })
     m.on('click', (e) => {
-      const t = toolR.current
-      if (!t) return
       const c: [number, number] = [e.lngLat.lng, e.lngLat.lat]
+      if (medR.current) { setRascunho((r) => [...r, c]); return }
+      const t = toolR.current
+      if (!t || travR.current) return
       if (t === 'ponto') {
         setItens((l) => [...l, { id: crypto.randomUUID(), nome: `Ponto ${l.filter((i) => i.tipo === 'ponto').length + 1}`, tipo: 'ponto', pasta: 'Pontos', coords: [c] }])
       } else setRascunho((r) => [...r, c])
@@ -103,7 +104,15 @@ export default function Mapa() {
     return () => { maplibregl.removeProtocol('pmtiles'); m.remove(); map.current = null }
   }, [desenhar])
 
-  useEffect(() => { localStorage.setItem(K, JSON.stringify(itens)); desenhar() }, [itens, rascunho, tool, desenhar])
+  useEffect(() => {
+    if (!('geolocation' in navigator)) return
+    const id = navigator.geolocation.watchPosition(
+      (p) => setGps({ lng: p.coords.longitude, lat: p.coords.latitude, acc: p.coords.accuracy }),
+      () => setGps(null), { enableHighAccuracy: true })
+    return () => navigator.geolocation.clearWatch(id)
+  }, [])
+
+  useEffect(() => { localStorage.setItem(K, JSON.stringify(itens)); desenhar() }, [itens, rascunho, tool, medir, desenhar])
 
   useEffect(() => {
     void (async () => {
@@ -183,33 +192,69 @@ export default function Mapa() {
   }
 
   const pastas = [...new Set(itens.map((i) => i.pasta))]
-  const btn = (t: Tipo, Icon: typeof MapPin, label: string) => (
-    <Button size="sm" variant={tool === t ? 'default' : 'secondary'} onClick={() => { setRascunho([]); setTool(tool === t ? null : t) }}><Icon /> {label}</Button>
+  const escolher = (t: Tipo) => {
+    if (travado) { toast.info('Destrave o cadeado de edição para desenhar'); return }
+    setMedir(false); setRascunho([]); setTool(tool === t ? null : t)
+  }
+  const fab = (t: Tipo, Icon: typeof MapPin, label: string) => (
+    <button key={t} title={label} aria-label={label} onClick={() => escolher(t)}
+      className={`grid size-11 place-items-center rounded-full text-white shadow-lg ${tool === t ? 'bg-[#ea580c] ring-2 ring-white' : 'bg-[#f97316] hover:bg-[#ea580c]'}`}><Icon className="size-5" /></button>
   )
+  const ctl = 'grid size-10 place-items-center rounded-lg border border-slate-600 bg-[#1e293b]/95 text-slate-200 shadow hover:bg-slate-700'
+  const centralizar = () => {
+    const g = gpsR.current
+    if (!g) { toast.error('GPS indisponível'); return }
+    map.current?.flyTo({ center: [g.lng, g.lat], zoom: 17 })
+  }
+  const limpar = () => { setRascunho([]); setTool(null); setMedir(false); setBusca('') }
+  const salvarAgora = () => {
+    if (!pid.current) { toast.success('Salvo no aparelho'); return }
+    salvarItens(pid.current, itens, antigos.current)
+      .then(() => { antigos.current = itens.map((i) => i.id); toast.success('Projeto salvo') })
+      .catch(() => toast.error('Falha ao salvar; mantido no aparelho'))
+  }
+  const distMedida = medir && rascunho.length > 1 ? comprimento(rascunho) : 0
 
   return (
-    <div className="relative flex min-h-[500px] w-full flex-1 flex-col" style={{ height: '100svh' }}>
-      <div ref={el} className="absolute inset-0 h-full min-h-[500px] w-full bg-muted" style={{ width: '100%', height: '100%' }} />
-      <div className="absolute left-3 right-3 top-3 z-10 flex flex-wrap items-center gap-2">
+    <div className="relative min-h-[400px] w-full flex-1">
+      <div ref={el} className="absolute inset-0 h-full w-full bg-[#1e293b]" />
+      <div className="absolute left-3 top-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-2 lg:max-w-[55%]">
+        <button onClick={salvarAgora} className="flex h-9 items-center gap-1 rounded-md bg-[#f97316] px-3 text-sm font-medium text-white shadow hover:bg-[#ea580c]"><Save className="size-4" /> Salvar</button>
+        <button onClick={limpar} className="flex h-9 items-center gap-1 rounded-md border border-slate-600 bg-[#1e293b]/95 px-3 text-sm text-slate-200 shadow hover:bg-slate-700"><Eraser className="size-4" /> Limpar</button>
         <form className="flex min-w-52 flex-1 gap-1 sm:max-w-md" onSubmit={(e) => { e.preventDefault(); buscar() }}>
-          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar endereço, item ou lat,lng" className="bg-background" />
-          <Button type="submit" size="icon" aria-label="Buscar"><Search /></Button>
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Coordenada, link ou endereço" className="h-9 w-full rounded-md border border-slate-600 bg-[#1e293b]/95 px-3 text-sm text-slate-100 placeholder:text-slate-400" />
+          <button type="submit" aria-label="Buscar" className="grid size-9 shrink-0 place-items-center rounded-md bg-[#f97316] text-white hover:bg-[#ea580c]"><Search className="size-4" /></button>
         </form>
-        <div className="flex gap-1 rounded-md bg-background p-1 shadow">
-          {(['vetorial', 'satelite', 'relevo'] as Base[]).map((b) => (
-            <Button key={b} size="sm" variant={base === b ? 'default' : 'ghost'} onClick={() => trocarBase(b)} className="capitalize">{b === 'satelite' ? 'Satélite' : b}</Button>
-          ))}
-        </div>
-        <Button size="sm" variant="secondary" onClick={() => arq.current?.click()}><Upload /> .pmtiles</Button>
-        <input ref={arq} type="file" accept=".pmtiles" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void importar(f); e.target.value = '' }} />
-        <Button size="sm" variant="outline" onClick={exportar}><Download /> GeoJSON</Button>
-        <Button size="sm" variant="outline" asChild><Link to="/diagrama"><Workflow /> Diagrama</Link></Button>
-        {isAdmin && <Button size="sm" variant="outline" asChild><Link to="/admin"><ShieldCheck /> Admin</Link></Button>}
-        <Button size="sm" variant="outline" onClick={() => void sair()} title={usuario?.email}><LogOut /> Sair</Button>
       </div>
-      <Button size="icon" variant="secondary" className="absolute bottom-3 left-3 z-20" aria-label="Menu" onClick={() => setMenu((v) => !v)}><Menu /></Button>
-      {menu && <aside className="absolute bottom-16 left-3 z-10 max-h-[55svh] w-56 space-y-2 overflow-auto rounded-lg bg-background/95 p-3 text-sm shadow">
-        <div className="flex flex-wrap gap-1">{btn('ponto', MapPin, 'Ponto')}{btn('linha', Minus, 'Linha')}{btn('poligono', Pentagon, 'Pol.')}</div>
+
+      <div className="absolute right-3 top-3 z-10 flex flex-col items-end gap-2">
+        <div className="flex items-center gap-1 rounded-full border border-slate-600 bg-[#0f172a]/95 p-1 shadow">
+          {(['vetorial', 'satelite', 'relevo'] as Base[]).map((b) => (
+            <button key={b} onClick={() => trocarBase(b)} className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${base === b ? 'bg-[#f97316] text-white' : 'text-slate-300 hover:bg-[#1e293b]'}`}>{b === 'satelite' ? 'Satélite' : b}</button>
+          ))}
+          <button onClick={() => arq.current?.click()} className="flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium text-slate-300 hover:bg-[#1e293b]"><Upload className="size-3" /> .pmtiles</button>
+          <input ref={arq} type="file" accept=".pmtiles" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void importar(f); e.target.value = '' }} />
+        </div>
+        <button className={ctl} title="Norte" aria-label="Norte" onClick={() => map.current?.easeTo({ bearing: 0, pitch: 0 })}><Compass className="size-5" /></button>
+        <button className={`${ctl} ${travado ? '' : 'border-[#f97316] text-[#f97316]'}`} title={travado ? 'Edição travada' : 'Edição liberada'} aria-label="Cadeado de edição" onClick={() => { setTravado((v) => !v); if (!travado) { setTool(null); setRascunho([]) } }}>{travado ? <Lock className="size-5" /> : <Unlock className="size-5" />}</button>
+        <button className={`${ctl} ${medir ? 'border-[#f97316] text-[#f97316]' : ''}`} title="Medir distância" aria-label="Medidor" onClick={() => { setTool(null); setRascunho([]); setMedir((v) => !v) }}><Ruler className="size-5" /></button>
+        {medir && <span className="rounded-md bg-[#0f172a]/95 px-2 py-1 text-xs text-slate-100 shadow">{fmtM(distMedida)}</span>}
+        <button className={ctl} title="Centralizar no GPS" aria-label="Centralizar GPS" onClick={centralizar}><LocateFixed className="size-5" /></button>
+      </div>
+
+      <div className="absolute bottom-10 right-3 z-10 flex flex-col items-center gap-2">
+        {fab('poligono', Pentagon, 'Polígono')}{fab('linha', Minus, 'Linha')}{fab('ponto', MapPin, 'Ponto')}
+        <div className="mt-1 flex flex-col overflow-hidden rounded-lg border border-slate-600 bg-[#1e293b]/95 shadow">
+          <button aria-label="Aumentar zoom" className="grid size-10 place-items-center text-slate-200 hover:bg-slate-700" onClick={() => map.current?.zoomIn()}><Plus className="size-5" /></button>
+          <button aria-label="Diminuir zoom" className="grid size-10 place-items-center border-t border-slate-600 text-slate-200 hover:bg-slate-700" onClick={() => map.current?.zoomOut()}><Minus className="size-5" /></button>
+        </div>
+      </div>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center">
+        <span className="rounded-t-md bg-[#0f172a]/80 px-3 py-1 text-xs text-slate-300">{gps ? `GPS ±${Math.round(gps.acc)}m` : 'GPS indisponível'}</span>
+      </div>
+
+      <button className={`${ctl} absolute bottom-3 left-3 z-20`} aria-label="Menu" onClick={() => setMenu((v) => !v)}><Menu className="size-5" /></button>
+      {menu && <aside className="absolute bottom-16 left-3 z-10 max-h-[55svh] w-56 space-y-2 overflow-auto rounded-lg border border-slate-600 bg-[#0f172a]/90 p-3 text-sm text-slate-200 shadow">
         {tool && tool !== 'ponto' && <Button size="sm" className="w-full" onClick={concluir}><Check /> Concluir ({rascunho.length})</Button>}
         {tool && <p className="text-xs text-muted-foreground">Clique no mapa para adicionar.</p>}
         <p className="flex items-center gap-1 font-medium"><Folder className="size-4" /> Projeto</p>
