@@ -82,7 +82,8 @@ export default function Mapa() {
     m.addControl(new maplibregl.NavigationControl(), 'bottom-right')
     m.addControl(new maplibregl.GeolocateControl({ trackUserLocation: true, positionOptions: { enableHighAccuracy: true } }), 'bottom-right')
     let fallback = false
-    m.on('error', () => {
+    m.on('error', (ev) => {
+      console.error('Erro no mapa:', ev.error)
       if (fallback || m.isStyleLoaded()) return
       fallback = true
       m.setStyle(raster(['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], 19, '© OpenStreetMap'))
@@ -187,8 +188,8 @@ export default function Mapa() {
   )
 
   return (
-    <div className="relative h-svh w-full">
-      <div ref={el} className="absolute inset-0" />
+    <div className="relative flex min-h-[500px] w-full flex-1 flex-col" style={{ height: '100svh' }}>
+      <div ref={el} className="absolute inset-0 h-full min-h-[500px] w-full bg-muted" style={{ width: '100%', height: '100%' }} />
       <div className="absolute left-3 right-3 top-3 z-10 flex flex-wrap items-center gap-2">
         <form className="flex min-w-52 flex-1 gap-1 sm:max-w-md" onSubmit={(e) => { e.preventDefault(); buscar() }}>
           <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar endereço, item ou lat,lng" className="bg-background" />
