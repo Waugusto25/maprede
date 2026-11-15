@@ -81,6 +81,15 @@ export default function Mapa() {
     map.current = m
     m.addControl(new maplibregl.NavigationControl(), 'bottom-right')
     m.addControl(new maplibregl.GeolocateControl({ trackUserLocation: true, positionOptions: { enableHighAccuracy: true } }), 'bottom-right')
+    let fallback = false
+    m.on('error', () => {
+      if (fallback || m.isStyleLoaded()) return
+      fallback = true
+      m.setStyle(raster(['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], 19, '© OpenStreetMap'))
+      toast.error('Mapa vetorial indisponível; usando mapa básico')
+    })
+    m.on('load', () => m.resize())
+    setTimeout(() => m.resize(), 300)
     m.on('style.load', () => { desenhar(); pm.current.forEach((f) => f()) })
     m.on('click', (e) => {
       const t = toolR.current
