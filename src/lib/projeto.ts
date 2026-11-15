@@ -21,6 +21,8 @@ export const fmtM = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(2)} km` : 
 
 export async function projetoPadrao(): Promise<string | null> {
   if (!supabaseConfigurado) return null
+  const p = new URLSearchParams(window.location.search).get('p')
+  if (p) return p
   const { data } = await supabase.from('projects').select('id').order('created_at').limit(1)
   if (data && data[0]) return (data[0] as { id: string }).id
   const { data: novo } = await supabase.from('projects').insert({ name: 'Meu projeto' }).select('id').single()
