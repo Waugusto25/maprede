@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom'
 import { Clock, Ban } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
+import { TopBar } from '@/components/TopBar'
 import Mapa from '@/pages/Mapa'
 
 export default function Home({ children }: { children?: ReactNode }) {
@@ -25,5 +26,10 @@ export default function Home({ children }: { children?: ReactNode }) {
       </div>
     )
   }
-  return <>{children ?? <Mapa />}</>
+  return (
+    <div className="flex h-svh w-full flex-col overflow-hidden bg-[#0f172a]">
+      <TopBar />
+      <main className="relative flex min-h-0 flex-1 flex-col overflow-auto">{children ?? <Mapa />}</main>
+    </div>
+  )
 }

@@ -6,6 +6,7 @@ import Home from '@/pages/Home'
 import Admin from '@/pages/Admin'
 import Diagrama from '@/pages/Diagrama'
 import { Legal } from '@/pages/Legal'
+import { EmBreve } from '@/components/TopBar'
 
 export default function App() {
   return (
@@ -13,6 +14,11 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/projetos" element={<Home><EmBreve titulo="Projetos" etapa={2} /></Home>} />
+          <Route path="/viabilidade-ftth" element={<Home><EmBreve titulo="Viabilidade FTTH" etapa={3} /></Home>} />
+          <Route path="/viabilidade-radio" element={<Home><EmBreve titulo="Viabilidade Via Rádio" etapa={3} /></Home>} />
+          <Route path="/viabilidades" element={<Home><EmBreve titulo="Viabilidades" etapa={3} /></Home>} />
+          <Route path="/offline" element={<Home><EmBreve titulo="Mapa Offline" etapa={2} /></Home>} />
           <Route path="/diagrama" element={<Home><Diagrama /></Home>} />
           <Route path="/login" element={<Login />} />
           <Route path="/admin" element={<Admin />} />
