@@ -1,10 +1,11 @@
+import type { ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
 import { Clock, Ban } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
 import Mapa from '@/pages/Mapa'
 
-export default function Home() {
+export default function Home({ children }: { children?: ReactNode }) {
   const { usuario, carregando, sair } = useAuth()
   if (carregando) return <div className="grid min-h-svh place-items-center">Carregando…</div>
   if (!usuario) return <Navigate to="/login" replace />
@@ -24,5 +25,5 @@ export default function Home() {
       </div>
     )
   }
-  return <Mapa />
+  return <>{children ?? <Mapa />}</>
 }
