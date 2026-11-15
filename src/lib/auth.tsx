@@ -32,7 +32,8 @@ interface Ctx {
   usuario: Usuario | null
   usuarios: Usuario[]
   isAdmin: boolean
-  entrarGoogle: () => Promise<void>
+  entrar: (email: string, senha: string) => Promise<void>
+  cadastrar: (email: string, senha: string, nome: string) => Promise<string>
   sair: () => Promise<void>
   setStatus: (id: string, s: Status) => Promise<void>
   recarregarUsuarios: () => Promise<void>
@@ -92,15 +93,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { vivo = false; clearTimeout(fim); sub.subscription.unsubscribe(); remover?.() }
   }, [carregarPerfil])
 
-  const entrarGoogle = async () => {
+  const entrar = async (email: string, senha: string) => {
     if (!supabaseConfigurado) throw new Error('Supabase não configurado (VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY).')
-    const native = isNative()
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: native ? DEEP_LINK : window.location.origin, skipBrowserRedirect: native },
-    })
+    const { error } = await supabase.auth.signInWithPassword({ email, password: senha })
     if (error) throw error
-    if (native && data.url) await Browser.open({ url: data.url })
+  }
+
+  const cadastrar = async (email: string, senha: string, nome: string) => {
+    if (!supabaseConfigurado) throw new Error('Supabase não configurado (VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY).')
+    const { data, error } = await supabase.auth.signUp({ email, password: senha, options: { data: { full_name: nome } } })
+    if (error) throw error
+    return data.session ? 'Conta criada.' : 'Conta criada. Confirme o e-mail, se solicitado, e entre.'
   }
 
   const sair = async () => {
@@ -122,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isAdmin = usuario?.role === 'admin' && usuario.status === 'aprovado'
   return (
-    <AuthCtx.Provider value={{ carregando, usuario, usuarios, isAdmin, entrarGoogle, sair, setStatus, recarregarUsuarios }}>
+    <AuthCtx.Provider value={{ carregando, usuario, usuarios, isAdmin, entrar, cadastrar, sair, setStatus, recarregarUsuarios }}>
       {children}
     </AuthCtx.Provider>
   )
