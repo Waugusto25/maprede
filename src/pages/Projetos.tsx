@@ -38,11 +38,17 @@ function deGeoJSON(texto: string): Item[] {
     const g = f.geometry
     if (!g) return
     const nome = String(f.properties?.name ?? f.properties?.nome ?? `Item ${n + 1}`)
-    const mk = (tipo: Tipo, coords: [number, number][]) => out.push({ id: crypto.randomUUID(), nome, tipo, pasta: 'Importados', coords })
+    const pasta = String(f.properties?.folder ?? f.properties?.pasta ?? 'Importados')
+    const mk = (tipo: Tipo, coords: [number, number][]) => out.push({ id: crypto.randomUUID(), nome, tipo, pasta, coords })
+    const ln = (a: unknown) => (a as number[][]).map((p) => [p[0], p[1]] as [number, number])
+    const poly = (a: unknown) => ln((a as number[][][])[0]).slice(0, -1)
     const c = g.coordinates as number[] & number[][] & number[][][]
     if (g.type === 'Point') mk('ponto', [[c[0], c[1]]])
-    else if (g.type === 'LineString') mk('linha', (c as number[][]).map((p) => [p[0], p[1]]))
-    else if (g.type === 'Polygon') mk('poligono', (c as unknown as number[][][])[0].slice(0, -1).map((p) => [p[0], p[1]]))
+    else if (g.type === 'MultiPoint') (c as number[][]).forEach((p) => mk('ponto', [[p[0], p[1]]]))
+    else if (g.type === 'LineString') mk('linha', ln(c))
+    else if (g.type === 'MultiLineString') (c as unknown as number[][][]).forEach((l) => mk('linha', ln(l)))
+    else if (g.type === 'Polygon') mk('poligono', poly(c))
+    else if (g.type === 'MultiPolygon') (c as unknown as number[][][][]).forEach((pl) => mk('poligono', poly(pl)))
   })
   return out
 }
