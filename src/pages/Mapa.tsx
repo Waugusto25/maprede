@@ -13,6 +13,7 @@ type Base = 'vetorial' | 'satelite' | 'relevo'
 
 const raster = (tiles: string[], maxzoom: number, attribution: string): maplibregl.StyleSpecification => ({
   version: 8,
+  glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
   sources: { base: { type: 'raster', tiles, tileSize: 256, maxzoom, attribution } },
   layers: [{ id: 'base', type: 'raster', source: 'base' }],
 })
@@ -63,7 +64,7 @@ export default function Mapa() {
 
   const desenhar = useCallback(() => {
     const m = map.current
-    if (!m || !m.isStyleLoaded()) return
+    if (!m || !m.getStyle()) return
     const data = toGeo(itensR.current, rascR.current, toolR.current)
     const src = m.getSource('dados') as maplibregl.GeoJSONSource | undefined
     if (src) { src.setData(data); return }
@@ -71,7 +72,7 @@ export default function Mapa() {
     m.addLayer({ id: 'dados-fill', type: 'fill', source: 'dados', filter: ['==', '$type', 'Polygon'], paint: { 'fill-color': '#22d3ee', 'fill-opacity': 0.25 } })
     m.addLayer({ id: 'dados-line', type: 'line', source: 'dados', filter: ['!=', '$type', 'Point'], paint: { 'line-color': '#06b6d4', 'line-width': 3 } })
     m.addLayer({ id: 'dados-pt', type: 'circle', source: 'dados', filter: ['==', '$type', 'Point'], paint: { 'circle-radius': 6, 'circle-color': '#f43f5e', 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' } })
-    m.addLayer({ id: 'dados-lbl', type: 'symbol', source: 'dados', filter: ['==', '$type', 'Point'], layout: { 'text-field': ['get', 'nome'], 'text-offset': [0, 1.2], 'text-size': 12 }, paint: { 'text-halo-color': '#fff', 'text-halo-width': 1 } })
+    m.addLayer({ id: 'dados-lbl', type: 'symbol', source: 'dados', filter: ['==', '$type', 'Point'], layout: { 'text-field': ['get', 'nome'], 'text-font': ['Noto Sans Regular'], 'text-offset': [0, 1.2], 'text-size': 12 }, paint: { 'text-color': '#0f172a', 'text-halo-color': '#fff', 'text-halo-width': 1.5 } })
   }, [])
 
   useEffect(() => {
