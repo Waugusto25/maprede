@@ -30,15 +30,24 @@ function ArteFibra() {
 }
 
 export default function Login() {
-  const { usuario, entrarGoogle } = useAuth()
+  const { usuario, entrar, cadastrar } = useAuth()
   const [busy, setBusy] = useState(false)
+  const [modo, setModo] = useState<'entrar' | 'cadastro'>('entrar')
+  const [email, setEmail] = useState('')
+  const [senha, setSenha] = useState('')
+  const [nome, setNome] = useState('')
   if (usuario) return <Navigate to="/" replace />
 
-  const google = async () => {
+  const enviar = async (e: React.FormEvent) => {
+    e.preventDefault()
     setBusy(true)
-    try { await entrarGoogle() } catch (e) { toast.error(e instanceof Error ? e.message : 'Falha no login') }
+    try {
+      if (modo === 'entrar') await entrar(email.trim(), senha)
+      else toast.success(await cadastrar(email.trim(), senha, nome.trim()))
+    } catch (err) { toast.error(err instanceof Error ? err.message : 'Falha no login') }
     setBusy(false)
   }
+  const campo = 'w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-400'
 
   return (
     <main className="grid min-h-svh md:grid-cols-2">
@@ -49,9 +58,19 @@ export default function Login() {
         <div className="max-w-sm space-y-6">
           <h1 className="text-3xl font-semibold leading-tight">Engenharia FTTH, GIS e viabilidade de redes em um só lugar.</h1>
           <p className="text-sm text-slate-400">Mapa offline, diagrama unifilar óptico e cálculo de perdas para projetos de fibra.</p>
-          <Button size="lg" className="w-full bg-cyan-500 text-slate-950 hover:bg-cyan-400" onClick={google} disabled={busy}>
-            {busy && <Loader2 className="animate-spin" />} Entrar com Google
-          </Button>
+          <form onSubmit={enviar} className="space-y-3">
+            {modo === 'cadastro' && (
+              <input className={campo} placeholder="Nome" value={nome} onChange={(e) => setNome(e.target.value)} required />
+            )}
+            <input className={campo} type="email" placeholder="E-mail" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <input className={campo} type="password" placeholder="Senha (mín. 6 caracteres)" autoComplete={modo === 'entrar' ? 'current-password' : 'new-password'} minLength={6} value={senha} onChange={(e) => setSenha(e.target.value)} required />
+            <Button type="submit" size="lg" className="w-full bg-cyan-500 text-slate-950 hover:bg-cyan-400" disabled={busy}>
+              {busy && <Loader2 className="animate-spin" />} {modo === 'entrar' ? 'Entrar' : 'Criar conta'}
+            </Button>
+            <button type="button" className="w-full text-xs text-cyan-400 hover:underline" onClick={() => setModo(modo === 'entrar' ? 'cadastro' : 'entrar')}>
+              {modo === 'entrar' ? 'Não tem conta? Criar conta' : 'Já tem conta? Entrar'}
+            </button>
+          </form>
           <p className="text-xs text-slate-500">Novos usuários ficam como “Pendente” até aprovação do administrador.</p>
         </div>
         <footer className="flex gap-4 text-xs text-slate-500">
