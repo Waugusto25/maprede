@@ -5,6 +5,7 @@ import Login from '@/pages/Login'
 import Home from '@/pages/Home'
 import Admin from '@/pages/Admin'
 import Diagrama from '@/pages/Diagrama'
+import Projetos from '@/pages/Projetos'
 import { Legal } from '@/pages/Legal'
 import { EmBreve } from '@/components/TopBar'
 
@@ -14,7 +15,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/projetos" element={<Home><EmBreve titulo="Projetos" etapa={2} /></Home>} />
+          <Route path="/projetos" element={<Home><Projetos /></Home>} />
           <Route path="/viabilidade-ftth" element={<Home><EmBreve titulo="Viabilidade FTTH" etapa={3} /></Home>} />
           <Route path="/viabilidade-radio" element={<Home><EmBreve titulo="Viabilidade Via Rádio" etapa={3} /></Home>} />
           <Route path="/viabilidades" element={<Home><EmBreve titulo="Viabilidades" etapa={3} /></Home>} />
