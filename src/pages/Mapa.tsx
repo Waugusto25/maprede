@@ -155,7 +155,15 @@ export default function Mapa() {
         if (!id) return
         pid.current = id
         const remotos = await carregarItens(id)
-        if (remotos.length) setItens(remotos)
+        if (remotos.length) {
+          setItens(remotos)
+          const pts = remotos.flatMap((r) => r.coords)
+          if (pts.length && map.current) {
+            const b = new maplibregl.LngLatBounds(pts[0], pts[0])
+            pts.forEach((p) => b.extend(p))
+            map.current.fitBounds(b, { padding: 60, maxZoom: 17, duration: 0 })
+          }
+        }
         antigos.current = remotos.map((r) => r.id)
       } catch { /* offline: segue com dados locais */ }
       pronto.current = true
